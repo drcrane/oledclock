@@ -14,7 +14,7 @@ MCU        = msp430g2553
 #MCU        = msp430g2211
 # List all the source files here
 # eg if you have a source file foo.c then list it here
-SOURCES = main.c ssd1306.c utilityfn.c ter_ssd1306.c
+SOURCES = main.c ssd1306.c utilityfn.c ter_ssd1306.c rtc.c
 # Include are located in the Include directory
 INCLUDES = -I .
 # Add or subtract whatever MSPGCC flags you want. There are plenty more

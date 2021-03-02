@@ -4,6 +4,7 @@
 #include "utilityfn.h"
 #include "ssd1306.h"
 #include "ter_ssd1306.h"
+#include "rtc.h"
 
 volatile int uart_data;
 volatile int txctr;
@@ -24,35 +25,42 @@ int main(void) {
 	WDTCTL = WDTPW + WDTHOLD;
 	P1DIR |= BIT0;
 	
-	BCSCTL1 = CALBC1_8MHZ;
-	DCOCTL = CALDCO_8MHZ;
+	//BCSCTL1 = CALBC1_8MHZ;
+	//DCOCTL = CALDCO_8MHZ;
 	
-	//BCSCTL1 = CALBC1_1MHZ;
-	//DCOCTL = CALDCO_1MHZ;
+	BCSCTL1 = CALBC1_1MHZ;
+	DCOCTL = CALDCO_1MHZ;
 	
 	/* Configure hardware UART */
 	P1SEL |= BIT1 | BIT2 ; // P1.1 = RXD, P1.2=TXD
 	P1SEL2 |= BIT1 | BIT2 ; // P1.1 = RXD, P1.2=TXD
 	UCA0CTL1 |= UCSSEL_2; // Use SMCLK
 	// 9600 @ 1MHz
-	//UCA0BR0 = 104; // Set baud rate to 9600 with 1MHz clock (Data Sheet 15.3.13)
-	//UCA0BR1 = 0; // Set baud rate to 9600 with 1MHz clock
-	//UCA0MCTL = UCBRS_1; // Modulation UCBRSx = 1
+	UCA0BR0 = 104; // Set baud rate to 9600 with 1MHz clock (Data Sheet 15.3.13)
+	UCA0BR1 = 0; // Set baud rate to 9600 with 1MHz clock
+	UCA0MCTL = UCBRS_1; // Modulation UCBRSx = 1
 	// 9600 @ 8MHz
-	UCA0BR0 = 64;
-	UCA0BR1 = 3;
-	UCA0MCTL = UCBRS_2;
+	//UCA0BR0 = 64;
+	//UCA0BR1 = 3;
+	//UCA0MCTL = UCBRS_2;
 	UCA0CTL1 &= ~UCSWRST; // Initialize USCI state machine
 	IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
 	
+	// Configure XTAL for 32.768kHz
+	P2DIR = BIT7; // TODO: BIT 6 = 0 bit 0,1,2,3,4,5 -> 1 (OUT)
+	BCSCTL3 |= XCAP_3;
+	TA0CTL = TASSEL_1 | ID_0 | MC_1 | TACLR;
+	TA0CCR0 = 32767;
+	TA0CCTL0 = CCIE;
+
 	// Initialise UCB0 for I2C
 	P1SEL |= BIT6 | BIT7;
 	P1SEL2 |= BIT6 | BIT7;
 	UCB0CTL1 |= UCSWRST;
 	UCB0CTL0 = UCMST | UCMODE_3 | UCSYNC;
 	UCB0CTL1 = UCSSEL_2 | UCSWRST;
-	//UCB0BR0 = 12;
-	UCB0BR0 = 96;
+	UCB0BR0 = 12;
+	//UCB0BR0 = 96;
 	UCB0BR1 = 0;
 	/*  MCP3422:   1  1  0  1 A2 A1 A0 RW (RW Bit not in UCB0I2CSA) */
 	//UCB0I2CSA = 0x68;
@@ -66,6 +74,8 @@ int main(void) {
 	
 	UCA0TXBUF = 'I';
 	
+	rtc_initialise();
+
 	__eint();
 	
 	uart_data = 0;
