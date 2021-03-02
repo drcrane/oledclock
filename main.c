@@ -76,7 +76,14 @@ int main(void) {
 	
 	rtc_initialise();
 
-	__eint();
+	//__eint();
+	__bis_SR_register(GIE);
+
+	/* To enter LPM3 one should disable the serial interfaces        *
+	 * Serial interfaces can be disabled once their work is complete *
+	 * also, the GPIO interrupts should be enabled for buttons       */
+	//__bis_SR_register(LMP3_bits);
+	//__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	
 	uart_data = 0;
 	
