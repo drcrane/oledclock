@@ -23,13 +23,14 @@ unsigned long int Utility_hexToInt(const char* s, int count) {
 	return ret;
 }
 
+static const char hexchars[] = "0123456789ABCDEF";
+
 /**
  * translate count bytes from ptr into ascii hex and store them in the dst array.
  */
 void Utility_intToHex(char* dst, const void* ptr, int count) {
 	int i;
 	const unsigned char* cptr = (const unsigned char*)ptr;
-	const char hexchars[] = "0123456789ABCDEF";
 	unsigned int j = (count << 1);
 	dst[j] = 0;
 	for (i = 0; i < count; i++) {
@@ -37,4 +38,48 @@ void Utility_intToHex(char* dst, const void* ptr, int count) {
 		dst[--j] = hexchars[((cptr[i] >> 4) & 0xf)];
 	}
 }
+
+void Utility_reverse(char * str, int sz) {
+	char * j;
+	int c;
+	j = str + sz - 1;
+	while(str < j) {
+		c = *str;
+		*str++ = *j;
+		*j-- = c;
+	}
+}
+
+int Utility_intToAPadded(char * ptr, int value, int radix, int padding) {
+	int orig = value;
+	int digit;
+	char * dst = ptr;
+	int sz = 0;
+	if (value < 0) {
+		value = -value;
+	}
+	while (value) {
+		digit = value % radix;
+		*dst = hexchars[digit];
+		dst++;
+		value = value / radix;
+		sz++;
+	}
+	padding = padding - sz;
+	while (padding-- > 0) {
+		*dst = '0';
+		dst++;
+		sz++;
+	}
+	if (orig < 0) {
+		*dst = '-';
+		dst++;
+		sz++;
+	}
+	*dst = '\x00';
+	Utility_reverse(ptr, sz);
+	return sz;
+}
+
+
 

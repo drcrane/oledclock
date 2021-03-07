@@ -14,8 +14,8 @@ void rtc_initialise() {
 	rtc_ctx.second = 0;
 }
 
-void Timer0_A0(void) __attribute__((interrupt(TIMER0_A0_VECTOR)));
-void Timer0_A0(void) {
+void Timer0_A0_ISR(void) __attribute__((interrupt(TIMER0_A0_VECTOR)));
+void Timer0_A0_ISR(void) {
 	rtc_ctx.second ++;
 	if (rtc_ctx.second == 60) {
 		rtc_ctx.minute ++;

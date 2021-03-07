@@ -1,8 +1,10 @@
 #include "ter_ssd1306.h"
 
-/* 
+/*
  * These contents are automatically generated with xxd from the
  * binary file decoded by the programme in this directory.
+ *
+ * xxd -i ter_ssd3306 ter_ssd3306.inc
  */
 
 const unsigned char ter_ssd1306[] = {

@@ -5,9 +5,11 @@
 #include "ssd1306.h"
 #include "ter_ssd1306.h"
 #include "rtc.h"
+#include "timerfn.h"
 
 volatile int uart_data;
 volatile int txctr;
+char txbuf[28];
 
 void hwuart_sendb(char b) {
 	while(!(IFG2 & UCA0TXIFG));
@@ -21,10 +23,53 @@ void hwuart_sendstr(char * ptr) {
 	}
 }
 
+void write_time();
+
+void oled_displaytime() {
+	write_time();
+	ssd1306_writestringz(8, 16, txbuf);
+	//P2OUT ^= BIT0;
+	timer_callback(1, oled_displaytime);
+}
+
+void oled_initialise() {
+	UCB0I2CSA = 0x3c;
+	ssd1306_initialise();
+	ssd1306_clear();
+	ssd1306_command_1(SSD_Display_On);
+	timer_callback(1, oled_displaytime);
+}
+
+void write_time() {
+	char * buf = txbuf;
+	buf += Utility_intToAPadded(buf, rtc_ctx.hour, 10, 2);
+	*buf = ':';
+	buf++;
+	buf += Utility_intToAPadded(buf, rtc_ctx.minute, 10, 2);
+	*buf = ':';
+	buf++;
+	buf += Utility_intToAPadded(buf, rtc_ctx.second, 10, 2);
+}
+
+void toggle_led() {
+	//P2OUT ^= BIT0;
+	//timer_callback(30, toggle_led);
+}
+
 int main(void) {
 	WDTCTL = WDTPW + WDTHOLD;
 	P1DIR |= BIT0;
 	
+	/* Setup Button for Interrupt */
+	P1REN |= BIT5;
+	P1OUT |= BIT5;
+	P1IFG &= ~(BIT5);
+	P1IES |= BIT5;
+	P1IE |= BIT5;
+
+	P2DIR |= BIT0;
+	P2OUT &= ~(BIT0);
+
 	//BCSCTL1 = CALBC1_8MHZ;
 	//DCOCTL = CALDCO_8MHZ;
 	
@@ -47,11 +92,20 @@ int main(void) {
 	IE2 |= UCA0RXIE; // Enable USCI_A0 RX interrupt
 	
 	// Configure XTAL for 32.768kHz
-	P2DIR = BIT7; // TODO: BIT 6 = 0 bit 0,1,2,3,4,5 -> 1 (OUT)
+	P2DIR |= BIT7; // TODO: BIT 6 = 0 bit 0,1,2,3,4,5 -> 1 (OUT)
 	BCSCTL3 |= XCAP_3;
+	
+	// Timer A 0 is used for the RTC
 	TA0CTL = TASSEL_1 | ID_0 | MC_1 | TACLR;
+	//TA0CTL = TASSEL_1 | ID_2 | MC_1 | TACLR;
 	TA0CCR0 = 32767;
 	TA0CCTL0 = CCIE;
+
+	// Timer A 1 is used for callbacks
+	TA1CTL = TASSEL_1 | ID_0 | MC_1 | TACLR;
+	TA1CCR0 = 32767;
+	//TA1CCR0 = 16383;
+	TA1CCTL0 = CCIE;
 
 	// Initialise UCB0 for I2C
 	P1SEL |= BIT6 | BIT7;
@@ -72,9 +126,10 @@ int main(void) {
 	//IE2 |= UCB0RXIE;
 	//IE2 |= UCB0TXIE;
 	
-	UCA0TXBUF = 'I';
+	//UCA0TXBUF = 'I';
 	
 	rtc_initialise();
+	timer_initialise();
 
 	//__eint();
 	__bis_SR_register(GIE);
@@ -85,6 +140,10 @@ int main(void) {
 	//__bis_SR_register(LMP3_bits);
 	//__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	
+	//timer_callback(10, toggle_led);
+	timer_callback(1, oled_initialise);
+	//timer_callback(30, toggle_led);
+
 	uart_data = 0;
 	
 	while (1) {
@@ -94,6 +153,7 @@ int main(void) {
 			UCB0CTL1 &= ~UCSWRST;
 			UCB0CTL1 |= UCTR | UCTXSTT;
 			while (!(IFG2 & UCB0TXIFG));
+			/* 1 = Initiate Conversion, 0 1 = Channel 2, 0 = One Shot Conversion, 1 1 = 18 Bits (3.75 sps), 0 0 = x1 Gain */
 			UCB0TXBUF = 0xAC;
 			while (!(IFG2 & UCB0TXIFG));
 
@@ -134,33 +194,10 @@ int main(void) {
 			hwuart_sendstr("\r\n");
 			uart_data = 0;
 		}
-
 		if (uart_data == 'I') {
-			// Initilise SSD1306 (over I2C)
 			UCB0I2CSA = 0x3c;
-			ssd1306_command_1(SSD_Display_Off);
-			ssd1306_command_2(SSD1306_SETDISPLAYCLOCKDIV, 0x80);
-			ssd1306_command_2(SSD1306_SETMULTIPLEX, 0x3f);
-			//ssd1306_command_2(SSD1306_SETDISPLAYCLOCKDIV, 0x80);
-			//ssd1306_command_2(SSD1306_SETMULTIPLEX, 0x3f); // 128x64
-			ssd1306_command_2(SSD1306_SETDISPLAYOFFSET, 0x00);
-			ssd1306_command_1(SSD1306_SETSTARTLINE | 0x0);
-			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14); // internal vcc
-			
-			//ssd1306_command_2(SSD1306_MEMORYMODE, PAGE_MODE);
-			//ssd1306_command_2(SSD1306_MEMORYMODE, VERTICAL_MODE);
-			
-			//ssd1306_command_2(SSD1306_MEMORYMODE, HORIZONTAL_MODE);
-			ssd1306_command_1(SSD1306_SEGREMAP | 0x1);
-			ssd1306_command_1(SSD1306_COMSCANDEC);
-			ssd1306_command_2(SSD1306_SETCOMPINS, 0x12);
-			ssd1306_command_2(SSD_Set_ContrastLevel, 0xcf);//0x7F);
-			ssd1306_command_2(SSD1306_SETPRECHARGE, 0xF1);
-			ssd1306_command_2(SSD1306_SETVCOMDETECT, 0x40);
-			ssd1306_command_1(SSD1306_DISPLAYALLON_RESUME);
-			ssd1306_command_1(SSD1306_Normal_Display);
-			ssd1306_command_3( 0x21, 0, 127 );
-			ssd1306_command_3( 0x22, 0,   7 );
+			ssd1306_initialise();
+			ssd1306_clear();
 			ssd1306_command_1(SSD_Display_On);
 			//ssd1306_command_2(SSD1306_MEMORYMODE, HORIZONTAL_MODE);
 			//ssd1306_command_1(SSD_Deactivate_Scroll);
@@ -177,10 +214,10 @@ int main(void) {
 		}
 		if (uart_data == 'C') {
 			// Clear the screen
-			UCB0I2CSA = 0x3c;
-			ssd1306_clear();
-			ssd1306_command_3( 0x21, 0, 127 );
-			ssd1306_command_3( 0x22, 0, 7 );
+			//UCB0I2CSA = 0x3c;
+			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
+			ssd1306_command_1(SSD_Display_On);
+			//timer_callback(2, toggle_led);
 			uart_data = 0;
 		}
 		if (uart_data == 'D') {
@@ -196,7 +233,8 @@ int main(void) {
 			*/
 
 			// Write a string of characters
-			ssd1306_writestringz(8, 16, "Java");
+			write_time();
+			ssd1306_writestringz(8, 32, txbuf);
 
 			uart_data = 0;
 		}
@@ -228,7 +266,16 @@ int main(void) {
 			UCA0TXBUF = 'q';
 			uart_data = 0;
 		}
+		timer_docallbacks();
+		//P2OUT ^= BIT0;
+		__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	}
+}
+
+void Port1_ISR(void) __attribute__( ( interrupt( PORT1_VECTOR ) ) );
+void Port1_ISR(void) {
+	P1IFG &= ~(BIT5);
+	__bic_SR_register_on_exit(CPUOFF);
 }
 
 void USCI0RX_ISR(void) __attribute__( ( interrupt( USCIAB0RX_VECTOR ) ) );
