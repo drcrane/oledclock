@@ -44,24 +44,18 @@ void ssd1306_command_3(int cmd, int arg1, int arg2) {
 }
 
 void ssd1306_data_write(int count, char * buf) {
-	int i;
-	i = 0;
+	uint8_t * dst_buf;
 	while (UCB0STAT & UCBBUSY);
-	/* Disable Interrupts and do this sequentially */
-	IE2 &= ~UCB0TXIE;
-	UCB0CTL1 |= UCTR | UCTXSTT;
-	while (!(IFG2 & UCB0TXIFG));
-	UCB0TXBUF = SSD_Data_Mode;
-	while (!(IFG2 & UCB0TXIFG));
+	i2c_ctx.txbuf[0] = SSD_Data_Mode;
+	dst_buf = i2c_ctx.txbuf + 1;
+	i2c_ctx.txbuf_sz = count + 1;
+	i2c_ctx.txbuf_pos = 0;
 	while (count--) {
-		UCB0TXBUF = buf[i];
-		while (!(IFG2 & UCB0TXIFG));
-		i++;
+		*dst_buf = *buf;
+		dst_buf++;
+		buf++;
 	}
-	UCB0CTL1 |= UCTXSTP;
-	while (UCB0STAT & UCBBUSY);
-	IFG2 &= ~(UCB0TXIFG);
-	IE2 |= UCB0TXIE;
+	UCB0CTL1 |= UCTR | UCTXSTT;
 }
 
 void ssd1306_writebyte(int count, int byte) {
