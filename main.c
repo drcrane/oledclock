@@ -296,6 +296,7 @@ int main(void) {
 			P2OUT ^= BIT0;
 			uart_data = 0;
 		}
+		//P2OUT ^= BIT0;
 		timer_docallbacks();
 		__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	}
