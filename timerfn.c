@@ -33,7 +33,10 @@ int timer_callback(int ticks, void (*callback)()) {
 	} while (i != 0);
 	res = 0;
 finish:
-	timer_ctx.flags &= ~TIMER_FLAGS_EMPTY;
+	if (timer_ctx.flags & TIMER_FLAGS_EMPTY) {
+		timer_ctx.flags &= ~TIMER_FLAGS_EMPTY;
+		// start Timer 1
+	}
 	return res;
 }
 
@@ -94,6 +97,7 @@ void timer_docallbacks() {
 	int i;
 	int flg;
 	void (* callback)();
+start_again:
 	i = TIMER_MAX_CALLBACKS;
 	flg = 0;
 //	__asm__ (" mov  #6, r15\n call #logdebugpos\n" ::: "r15");
@@ -104,6 +108,7 @@ void timer_docallbacks() {
 				callback = timer_ctx.callback[i];
 				timer_ctx.callback[i] = NULL;
 				callback();
+				goto start_again;
 			}
 			flg = 1;
 		}
@@ -111,6 +116,7 @@ void timer_docallbacks() {
 	} while (i != 0);
 	if (flg == 0) {
 		timer_ctx.flags |= TIMER_FLAGS_EMPTY;
+		// Stop timer 1
 	}
 }
 
@@ -135,15 +141,15 @@ void Timer1_A0_ISR(void) {
 	int i;
 	int flg;
 	flg = 0;
-	P2OUT ^= BIT0;
 	if (!(timer_ctx.flags & TIMER_FLAGS_EMPTY)) {
 		i = TIMER_MAX_CALLBACKS;
 		do {
 			i--;
 			if (timer_ctx.ticks[i] != 0) {
 				timer_ctx.ticks[i] --;
-			} else
-			if (timer_ctx.callback[i] != NULL) {
+			}
+			if (timer_ctx.ticks[i] == 0 &&
+					timer_ctx.callback[i] != NULL) {
 				flg |= 1;
 			}
 		} while (i != 0);

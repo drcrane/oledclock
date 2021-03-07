@@ -27,6 +27,7 @@ void write_time();
 
 void oled_displaytime() {
 	write_time();
+	UCB0I2CSA = 0x3c;
 	ssd1306_writestringz(8, 16, txbuf);
 	//P2OUT ^= BIT0;
 	timer_callback(1, oled_displaytime);
@@ -267,7 +268,6 @@ int main(void) {
 			uart_data = 0;
 		}
 		timer_docallbacks();
-		//P2OUT ^= BIT0;
 		__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	}
 }
