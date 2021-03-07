@@ -282,11 +282,16 @@ int main(void) {
 				ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
 				ssd1306_command_1(SSD_Display_On);
 			}
+			if (c == 'l') {
+				P2OUT &= ~BIT0;
+			}
 			if (c == 'L') {
+				P2OUT |= BIT0;
+			}
+			if (c == 'T') {
 				P2OUT ^= BIT0;
 			}
 			uart_ctx.flags &= ~(UART_HASRECEIVED);
-			//P2OUT ^= BIT0;
 		}
 		timer_docallbacks();
 		__bic_SR_register(GIE);
@@ -312,7 +317,6 @@ void USCI0RX_ISR(void) {
 		hwuart_byte = UCA0RXBUF;
 		if (uart_ctx.rxlinebuf_pos < UART_LINEBUFSZ) {
 			if (hwuart_byte == '\r' || hwuart_byte == '\n') {
-				UCA0TXBUF = 'r';
 				if (uart_ctx.rxlinebuf_pos != 0) {
 					uart_ctx.rxlinebuf[uart_ctx.rxlinebuf_pos] = '\0';
 					if (uart_ctx.rxlinebuf == uart_ctx.rxlinebuf_a) {
@@ -325,7 +329,6 @@ void USCI0RX_ISR(void) {
 					__bic_SR_register_on_exit(CPUOFF);
 				}
 			} else {
-				UCA0TXBUF = 'R';
 				uart_ctx.rxlinebuf[uart_ctx.rxlinebuf_pos] = hwuart_byte;
 				uart_ctx.rxlinebuf_pos ++;
 			}
