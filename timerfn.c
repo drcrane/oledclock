@@ -15,7 +15,20 @@ void timer_initialise() {
 		timer_ctx.ticks[i] = 0;
 	} while (i != 0);
 	timer_ctx.flags = TIMER_FLAGS_EMPTY;
+	TA1CTL = TASSEL_1 | ID_0 | TACLR;
+	TA1CCR0 = 32767;
+	TA1CCTL0 = CCIE;
 }
+
+/*
+void timer_start() {
+	TA1CTL |= MC_1;
+}
+
+void timer_stop() {
+	TA1CTL &= ~(MC_1);
+}
+*/
 
 /* timerctx.flags is critical. */
 int timer_callback(int ticks, void (*callback)()) {
@@ -35,17 +48,9 @@ int timer_callback(int ticks, void (*callback)()) {
 finish:
 	if (timer_ctx.flags & TIMER_FLAGS_EMPTY) {
 		timer_ctx.flags &= ~TIMER_FLAGS_EMPTY;
-		// start Timer 1
+		TA1CTL |= MC_1;
 	}
 	return res;
-}
-
-void timer_set_dummy() {
-	timer_ctx.flags |= TIMER_FLAGS_DUMMY;
-}
-
-void timer_clear_dummy() {
-	timer_ctx.flags &= ~TIMER_FLAGS_DUMMY;
 }
 
 int timer_is_present(void (*callback)()) {
@@ -116,16 +121,9 @@ start_again:
 	} while (i != 0);
 	if (flg == 0) {
 		timer_ctx.flags |= TIMER_FLAGS_EMPTY;
-		// Stop timer 1
+		TA1CTL &= ~(MC_1);
 	}
 }
-
-/*
-int sendChar(int source) {
-	UCA0TXBUF = 'T'; while(!(IFG2 & UCA0TXIFG)) { __nop(); }
-	timer_callback(1000, sendChar);
-}
-*/
 
 /*
  * Execution time to enter the ISR is 6 cycles time to exit is 5 cycles

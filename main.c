@@ -148,7 +148,8 @@ int main(void) {
 	uart_data = 0;
 	
 	while (1) {
-		if (uart_data == 'S') {
+#if 0
+		if (uart_data == '1') {
 			UCB0CTL1 |= UCSWRST;
 			UCB0I2CSA = 0x68;
 			UCB0CTL1 &= ~UCSWRST;
@@ -163,11 +164,11 @@ int main(void) {
 			UCA0TXBUF = 's';
 			uart_data = 0;
 		}
-		if (uart_data == 'X') {
+		if (uart_data == '2') {
 			UCA0TXBUF = 'x';
 			uart_data = 0;
 		}
-		if (uart_data == 'T') {
+		if (uart_data == '3') {
 			int a, b, c, d, e;
 			char buf[10];
 			UCB0I2CSA = 0x68;
@@ -195,7 +196,7 @@ int main(void) {
 			hwuart_sendstr("\r\n");
 			uart_data = 0;
 		}
-		if (uart_data == 'I') {
+		if (uart_data == '4') {
 			UCB0I2CSA = 0x3c;
 			ssd1306_initialise();
 			ssd1306_clear();
@@ -206,22 +207,22 @@ int main(void) {
 			UCA0TXBUF = 'i';
 			uart_data = 0;
 		}
-		if (uart_data == 'L') {
+		if (uart_data == '5') {
 			// Switch the screen into Off mode
 			UCB0I2CSA = 0x3c;
 			ssd1306_command_1(SSD_Display_Off);
 			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x10);
 			uart_data = 0;
 		}
-		if (uart_data == 'C') {
-			// Clear the screen
+		if (uart_data == '6') {
+			// Turn the screen on
 			//UCB0I2CSA = 0x3c;
 			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
 			ssd1306_command_1(SSD_Display_On);
 			//timer_callback(2, toggle_led);
 			uart_data = 0;
 		}
-		if (uart_data == 'D') {
+		if (uart_data == '7') {
 			// Write a single character
 			/*
 			ssd1306_command_1(SSD1306_SETLOWCOLUMN | 0);
@@ -239,7 +240,7 @@ int main(void) {
 
 			uart_data = 0;
 		}
-		if (uart_data == 'R') {
+		if (uart_data == '8') {
 			UCB0CTL1 |= UCSWRST;
 			UCB0I2CSA = 0x3c;
 			UCB0CTL1 &= ~UCSWRST;
@@ -247,17 +248,19 @@ int main(void) {
 			UCA0TXBUF = 'r';
 			uart_data = 0;
 		}
-		if (uart_data == 'N') {
+		if (uart_data == '9') {
 			ssd1306_command_1(SSD1306_Normal_Display);
 			UCA0TXBUF = 'n';
 			uart_data = 0;
 		}
-		if (uart_data == 'O') {
+		if (uart_data == '0') {
 			ssd1306_command_2(SSD_Set_ContrastLevel, 0x0F);
 			UCA0TXBUF = 'o';
 			uart_data = 0;
 		}
-		if (uart_data == 'P') {
+#endif /* 0 */
+		/*
+		if (uart_data == '') {
 			ssd1306_command_2(SSD_Set_ContrastLevel, 0x01);
 			UCA0TXBUF = 'p';
 			uart_data = 0;
@@ -265,6 +268,17 @@ int main(void) {
 		if (uart_data == 'Q') {
 			ssd1306_command_2(SSD_Set_ContrastLevel, 0x7f);
 			UCA0TXBUF = 'q';
+			uart_data = 0;
+		}
+		*/
+		if (uart_data == 'U') {
+			if (!timer_is_present(oled_displaytime)) {
+				timer_callback(1, oled_displaytime);
+			}
+			uart_data = 0;
+		}
+		if (uart_data == 'u') {
+			timer_is_present_remove(oled_displaytime);
 			uart_data = 0;
 		}
 		timer_docallbacks();
