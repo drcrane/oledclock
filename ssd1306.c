@@ -1,61 +1,54 @@
 #include <msp430.h>
 #include "ssd1306.h"
 #include "ter_ssd1306.h"
+#include "serial.h"
 
 void ssd1306_command_1(int cmd) {
-	UCB0CTL1 |= UCTR | UCTXSTT;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = SSD_Command_Mode;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = cmd;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0CTL1 |= UCTXSTP;
 	while (UCB0STAT & UCBBUSY);
+
+	i2c_ctx.txbuf[0] = SSD_Command_Mode;
+	i2c_ctx.txbuf[1] = cmd;
+	i2c_ctx.txbuf_sz = 2;
+	i2c_ctx.txbuf_pos = 0;
+
+	UCB0CTL1 |= UCTR | UCTXSTT;
+//	while (!(IFG2 & UCB0TXIFG));	
+//	UCB0TXBUF = SSD_Command_Mode;
+//	while (!(IFG2 & UCB0TXIFG));
+//	UCB0TXBUF = cmd;
+//	while (!(IFG2 & UCB0TXIFG));
+//	UCB0CTL1 |= UCTXSTP;
+//	while (UCB0STAT & UCBBUSY);
 }
 
 void ssd1306_command_2(int cmd, int arg) {
-	UCB0CTL1 |= UCTR | UCTXSTT;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = SSD_Command_Mode;
-	while (!(IFG2 & UCB0TXIFG)) {  };
-	
-	UCB0TXBUF = cmd;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = arg;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0CTL1 |= UCTXSTP;
 	while (UCB0STAT & UCBBUSY);
+
+	i2c_ctx.txbuf[0] = SSD_Command_Mode;
+	i2c_ctx.txbuf[1] = cmd;
+	i2c_ctx.txbuf[2] = arg;
+	i2c_ctx.txbuf_sz = 3;
+	i2c_ctx.txbuf_pos = 0;
+	UCB0CTL1 |= UCTR | UCTXSTT;
 }
 
 void ssd1306_command_3(int cmd, int arg1, int arg2) {
-	UCB0CTL1 |= UCTR | UCTXSTT;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = SSD_Command_Mode;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = cmd;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = arg1;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0TXBUF = arg2;
-	while (!(IFG2 & UCB0TXIFG));
-	
-	UCB0CTL1 |= UCTXSTP;
 	while (UCB0STAT & UCBBUSY);
+	i2c_ctx.txbuf[0] = SSD_Command_Mode;
+	i2c_ctx.txbuf[1] = cmd;
+	i2c_ctx.txbuf[2] = arg1;
+	i2c_ctx.txbuf[3] = arg2;
+	i2c_ctx.txbuf_sz = 4;
+	i2c_ctx.txbuf_pos = 0;
+	UCB0CTL1 |= UCTR | UCTXSTT;
 }
 
 void ssd1306_data_write(int count, char * buf) {
 	int i;
 	i = 0;
+	while (UCB0STAT & UCBBUSY);
+	/* Disable Interrupts and do this sequentially */
+	IE2 &= ~UCB0TXIE;
 	UCB0CTL1 |= UCTR | UCTXSTT;
 	while (!(IFG2 & UCB0TXIFG));
 	UCB0TXBUF = SSD_Data_Mode;
@@ -67,9 +60,13 @@ void ssd1306_data_write(int count, char * buf) {
 	}
 	UCB0CTL1 |= UCTXSTP;
 	while (UCB0STAT & UCBBUSY);
+	IFG2 &= ~(UCB0TXIFG);
+	IE2 |= UCB0TXIE;
 }
 
 void ssd1306_writebyte(int count, int byte) {
+	while (UCB0STAT & UCBBUSY);
+	IE2 &= ~UCB0TXIE;
 	UCB0CTL1 |= UCTR | UCTXSTT;
 	while (!(IFG2 & UCB0TXIFG));
 	UCB0TXBUF = SSD_Data_Mode;
@@ -80,6 +77,8 @@ void ssd1306_writebyte(int count, int byte) {
 	}
 	UCB0CTL1 |= UCTXSTP;
 	while (UCB0STAT & UCBBUSY);
+	IFG2 &= ~(UCB0TXIFG);
+	IE2 |= UCB0TXIE;
 }
 
 void ssd1306_writestringz(int posx, int posy, char * strz) {

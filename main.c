@@ -6,6 +6,7 @@
 #include "ter_ssd1306.h"
 #include "rtc.h"
 #include "timerfn.h"
+#include "serial.h"
 
 volatile int uart_data;
 volatile int txctr;
@@ -125,7 +126,7 @@ int main(void) {
 	UCB0I2CSA = 0x3c;
 	UCB0CTL1 &= ~UCSWRST;
 	//IE2 |= UCB0RXIE;
-	//IE2 |= UCB0TXIE;
+	IE2 |= UCB0TXIE;
 	
 	//UCA0TXBUF = 'I';
 	
@@ -281,6 +282,20 @@ int main(void) {
 			timer_is_present_remove(oled_displaytime);
 			uart_data = 0;
 		}
+		if (uart_data == 'o') {
+			ssd1306_command_1(SSD_Display_Off);
+			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x10);
+			uart_data = 0;
+		}
+		if (uart_data == 'O') {
+			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
+			ssd1306_command_1(SSD_Display_On);
+			uart_data = 0;
+		}
+		if (uart_data == 'L') {
+			P2OUT ^= BIT0;
+			uart_data = 0;
+		}
 		timer_docallbacks();
 		__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	}
@@ -294,23 +309,42 @@ void Port1_ISR(void) {
 
 void USCI0RX_ISR(void) __attribute__( ( interrupt( USCIAB0RX_VECTOR ) ) );
 void USCI0RX_ISR(void) {
-	int tmp_data;
-	tmp_data = UCA0RXBUF & 0xff;
-	if (tmp_data != '\n') {
-		uart_data = tmp_data;
+	if (IFG2 & UCA0RXIFG) {
+		int tmp_data;
+		tmp_data = UCA0RXBUF & 0xff;
+		if (tmp_data != '\n') {
+			uart_data = tmp_data;
+		}
+		__bic_SR_register_on_exit(CPUOFF);
 	}
-	__bic_SR_register_on_exit(CPUOFF);
 }
 
 void USCI0TX_ISR(void) __attribute__ ( ( interrupt( USCIAB0TX_VECTOR ) ) );
 void USCI0TX_ISR(void) {
-	//i2c_data = UCB0RXBUF;
-	if (txctr--) {
-		UCB0TXBUF = 0x90;
-	} else {
-		UCB0CTL1 |= UCTXSTP;
-		IFG2 &= ~UCB0TXIFG;
+	if (IFG2 & UCA0TXIFG) {
+		/*
+		if (txctr--) {
+			UCB0TXBUF = 0x90;
+		} else {
+			UCB0CTL1 |= UCTXSTP;
+			IFG2 &= ~UCB0TXIFG;
+		}
+		*/
 	}
-	//__bic_SR_register_on_exit(CPUOFF);
+	if (IFG2 & UCB0TXIFG) {
+		if (i2c_ctx.txbuf_pos < i2c_ctx.txbuf_sz) {
+			UCB0TXBUF = i2c_ctx.txbuf[i2c_ctx.txbuf_pos];
+			i2c_ctx.txbuf_pos ++;
+		} else
+		if (i2c_ctx.txbuf_pos == i2c_ctx.txbuf_sz) {
+			UCB0CTL1 |= UCTXSTP;
+			IFG2 &= ~UCB0TXIFG;
+			i2c_ctx.txbuf_pos ++;
+		} else {
+			P2OUT |= BIT0;
+		}
+	}
+	if (IFG2 & UCB0RXIFG) {
+	}
 }
 
