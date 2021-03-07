@@ -81,5 +81,28 @@ int Utility_intToAPadded(char * ptr, int value, int radix, int padding) {
 	return sz;
 }
 
-
+int Utility_aToInt(char * ptr) {
+	int idx;
+	idx = 0;
+	int valueisnegative = 0;
+	int result_value = 0;
+	while (ptr[idx] == '\t' || ptr[idx] == ' ') {
+		idx++;
+	}
+	if (ptr[idx] == '-') {
+		valueisnegative = 1;
+		idx++;
+	} else if (ptr[idx] == '+') {
+		idx++;
+	}
+	while (ptr[idx] >= '0' && ptr[idx] <= '9') {
+		result_value = result_value * 10;
+		result_value += (ptr[idx] - '0');
+		idx++;
+	}
+	if (valueisnegative) {
+		result_value = -(result_value);
+	}
+	return result_value;
+}
 

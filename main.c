@@ -8,8 +8,6 @@
 #include "timerfn.h"
 #include "serial.h"
 
-volatile int uart_data;
-volatile int txctr;
 char txbuf[28];
 
 void hwuart_sendb(char b) {
@@ -53,11 +51,6 @@ void write_time() {
 	buf += Utility_intToAPadded(buf, rtc_ctx.second, 10, 2);
 }
 
-void toggle_led() {
-	//P2OUT ^= BIT0;
-	//timer_callback(30, toggle_led);
-}
-
 int main(void) {
 	WDTCTL = WDTPW + WDTHOLD;
 	P1DIR |= BIT0;
@@ -81,6 +74,7 @@ int main(void) {
 	/* Configure hardware UART */
 	P1SEL |= BIT1 | BIT2 ; // P1.1 = RXD, P1.2=TXD
 	P1SEL2 |= BIT1 | BIT2 ; // P1.1 = RXD, P1.2=TXD
+	UCA0CTL1 |= UCSWRST;
 	UCA0CTL1 |= UCSSEL_2; // Use SMCLK
 	// 9600 @ 1MHz
 	UCA0BR0 = 104; // Set baud rate to 9600 with 1MHz clock (Data Sheet 15.3.13)
@@ -128,10 +122,9 @@ int main(void) {
 	//IE2 |= UCB0RXIE;
 	IE2 |= UCB0TXIE;
 	
-	//UCA0TXBUF = 'I';
-	
 	rtc_initialise();
 	timer_initialise();
+	uart_init();
 
 	//__eint();
 	__bis_SR_register(GIE);
@@ -146,8 +139,6 @@ int main(void) {
 	timer_callback(1, oled_initialise);
 	//timer_callback(30, toggle_led);
 
-	uart_data = 0;
-	
 	while (1) {
 #if 0
 		if (uart_data == '1') {
@@ -272,33 +263,38 @@ int main(void) {
 			uart_data = 0;
 		}
 		*/
-		if (uart_data == 'U') {
-			if (!timer_is_present(oled_displaytime)) {
-				timer_callback(1, oled_displaytime);
+		if (uart_ctx.flags & UART_HASRECEIVED) {
+			int c;
+			c = *(uart_getlinebuf());
+			if (c == 'U') {
+				if (!timer_is_present(oled_displaytime)) {
+					timer_callback(1, oled_displaytime);
+				}
 			}
-			uart_data = 0;
+			if (c == 'u') {
+				timer_is_present_remove(oled_displaytime);
+			}
+			if (c == 'o') {
+				ssd1306_command_1(SSD_Display_Off);
+				ssd1306_command_2(SSD1306_CHARGEPUMP, 0x10);
+			}
+			if (c == 'O') {
+				ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
+				ssd1306_command_1(SSD_Display_On);
+			}
+			if (c == 'L') {
+				P2OUT ^= BIT0;
+			}
+			uart_ctx.flags &= ~(UART_HASRECEIVED);
+			//P2OUT ^= BIT0;
 		}
-		if (uart_data == 'u') {
-			timer_is_present_remove(oled_displaytime);
-			uart_data = 0;
-		}
-		if (uart_data == 'o') {
-			ssd1306_command_1(SSD_Display_Off);
-			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x10);
-			uart_data = 0;
-		}
-		if (uart_data == 'O') {
-			ssd1306_command_2(SSD1306_CHARGEPUMP, 0x14);
-			ssd1306_command_1(SSD_Display_On);
-			uart_data = 0;
-		}
-		if (uart_data == 'L') {
-			P2OUT ^= BIT0;
-			uart_data = 0;
-		}
-		//P2OUT ^= BIT0;
 		timer_docallbacks();
-		__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
+		__bic_SR_register(GIE);
+		// Check for pending flags whilst no more can arrive!
+		if ((uart_ctx.flags & UART_HASRECEIVED) == 0) {
+			__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
+		}
+		__bis_SR_register(GIE);
 	}
 }
 
@@ -311,12 +307,31 @@ void Port1_ISR(void) {
 void USCI0RX_ISR(void) __attribute__( ( interrupt( USCIAB0RX_VECTOR ) ) );
 void USCI0RX_ISR(void) {
 	if (IFG2 & UCA0RXIFG) {
-		int tmp_data;
-		tmp_data = UCA0RXBUF & 0xff;
-		if (tmp_data != '\n') {
-			uart_data = tmp_data;
+		// Kick off the CPU on a CR (\r) or (\n)
+		int hwuart_byte;
+		hwuart_byte = UCA0RXBUF;
+		if (uart_ctx.rxlinebuf_pos < UART_LINEBUFSZ) {
+			if (hwuart_byte == '\r' || hwuart_byte == '\n') {
+				UCA0TXBUF = 'r';
+				if (uart_ctx.rxlinebuf_pos != 0) {
+					uart_ctx.rxlinebuf[uart_ctx.rxlinebuf_pos] = '\0';
+					if (uart_ctx.rxlinebuf == uart_ctx.rxlinebuf_a) {
+						uart_ctx.rxlinebuf = uart_ctx.rxlinebuf_b;
+					} else {
+						uart_ctx.rxlinebuf = uart_ctx.rxlinebuf_a;
+					}
+					uart_ctx.rxlinebuf_pos = 0;
+					uart_ctx.flags |= UART_HASRECEIVED;
+					__bic_SR_register_on_exit(CPUOFF);
+				}
+			} else {
+				UCA0TXBUF = 'R';
+				uart_ctx.rxlinebuf[uart_ctx.rxlinebuf_pos] = hwuart_byte;
+				uart_ctx.rxlinebuf_pos ++;
+			}
+		} else {
+			uart_ctx.rxlinebuf_pos = 0;
 		}
-		__bic_SR_register_on_exit(CPUOFF);
 	}
 }
 
