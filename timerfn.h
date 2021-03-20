@@ -6,6 +6,8 @@
 
 struct timer_context {
 	int flags;
+	int sys_ticks;
+	int soonest_ticks;
 	int ticks[TIMER_MAX_CALLBACKS];
 	void (*callback[TIMER_MAX_CALLBACKS])();
 };

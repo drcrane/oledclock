@@ -51,6 +51,11 @@ void write_time() {
 	buf += Utility_intToAPadded(buf, rtc_ctx.second, 10, 2);
 }
 
+void led_toggle() {
+	P2OUT ^= BIT0;
+	timer_callback(10, led_toggle);
+}
+
 int main(void) {
 	WDTCTL = WDTPW + WDTHOLD;
 	P1DIR |= BIT0;
@@ -135,9 +140,8 @@ int main(void) {
 	//__bis_SR_register(LMP3_bits);
 	//__bis_SR_register(GIE | CPUOFF | SCG0 | SCG1);
 	
-	//timer_callback(10, toggle_led);
+	timer_callback(10, led_toggle);
 	timer_callback(1, oled_initialise);
-	//timer_callback(30, toggle_led);
 
 	while (1) {
 #if 0
@@ -290,6 +294,14 @@ int main(void) {
 			}
 			if (c == 'T') {
 				P2OUT ^= BIT0;
+			}
+			if (c == 'F') {
+				if (!timer_is_present(led_toggle)) {
+					timer_callback(10, led_toggle);
+				}
+			}
+			if (c == 'f') {
+				timer_is_present_remove(led_toggle);
 			}
 			uart_ctx.flags &= ~(UART_HASRECEIVED);
 		}
