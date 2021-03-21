@@ -3,6 +3,9 @@
 #include "ter_ssd1306.h"
 #include "serial.h"
 
+uint8_t ssd1306_frame_buffer[SSD1306_FRAMEBUFFERSZ];
+int ssd1306_fb_top_x, ssd1306_fb_top_y;
+
 void ssd1306_command_1(int cmd) {
 	while (UCB0STAT & UCBBUSY);
 
@@ -112,6 +115,109 @@ void ssd1306_clear() {
 	}
 	ssd1306_command_3( 0x21, 0, 127 );
 	ssd1306_command_3( 0x22, 0, 7 );
+}
+
+void ssd1306_writeframebuffer() {
+	int posx = ssd1306_fb_top_x;
+	int posy = ssd1306_fb_top_y >> 3;
+	int ctr = 4;
+	while (ctr) {
+		ssd1306_command_1(SSD1306_SETLOWCOLUMN | (posx & 0xf));
+		ssd1306_command_1(SSD1306_SETHIGHCOLUMN | ((posx >> 4) & 0xf));
+		ssd1306_command_1(SSD1306_SETPAGE | (posy & 0xf));
+		ssd1306_data_write(32, (char *)&ssd1306_frame_buffer[(posy) * 32]);
+		posy ++;
+		ctr --;
+	}
+}
+
+/*
+ * Write a pixel in the frame buffer
+ * care must be taken not to draw outside the buffer
+ * bounds checking could be added?
+ */
+static void ssd1306_write_pixel(int x, int y) {
+	int offs;
+	uint8_t curr_byte;
+	uint8_t byte;
+	x = x - ssd1306_fb_top_x;
+	y = y - ssd1306_fb_top_y;
+	if (x < 0) { return; }
+	if (y < 0) { return; }
+	offs = x + ((y >> 3) * 32);
+	byte = 0x1;
+	byte = byte << (y & 0x7);
+	if (offs >= 128) { return; }
+	curr_byte = ssd1306_frame_buffer[offs];
+	curr_byte = curr_byte | byte;
+	ssd1306_frame_buffer[offs] = curr_byte;
+	//printf("offs %02d %02d,%02d %x\n", offs, x, y, curr_byte);
+}
+
+static void ssd1306_draw_line_low(int x0, int y0, int x1, int y1) {
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	int yi = 1;
+	int d, x, y;
+	if (dy < 0) {
+		yi = -1;
+		dy = -dy;
+	}
+	d = (2 * dy) - dx;
+	y = y0;
+
+	for (x = x0; x <= x1; x++) {
+		ssd1306_write_pixel(x, y);
+		if (d > 0) {
+			y = y + yi;
+			d = d + (2 * (dy - dx));
+		} else {
+			d = d + (2 * dy);
+		}
+	}
+}
+
+static void ssd1306_draw_line_high(int x0, int y0, int x1, int y1) {
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	int xi = 1;
+	int d, x, y;
+	if (dx < 0) {
+		xi = -1;
+		dx = -dx;
+	}
+	d = 2 * dx;
+	x = x0;
+
+	for (y = y0; y <= y1; y ++) {
+		ssd1306_write_pixel(x, y);
+		if (d > 0) {
+			x = x + xi;
+			d = d + (2 * (dx - dy));
+		} else {
+			d = d + (2 * dx);
+		}
+	}
+}
+
+void ssd1306_draw_line(int x0, int y0, int x1, int y1) {
+	int dx = x1 - x0;
+	int dy = y1 - y0;
+	if (dx < 0) { dx = -dx; }
+	if (dy < 0) { dy = -dy; }
+	if (dy < dx) {
+		if (x0 > x1) {
+			ssd1306_draw_line_low(x1, y1, x0, y0);
+		} else {
+			ssd1306_draw_line_low(x0, y0, x1, y1);
+		}
+	} else {
+		if (y0 > y1) {
+			ssd1306_draw_line_high(x1, y1, x0, y0);
+		} else {
+			ssd1306_draw_line_high(x0, y0, x1, y1);
+		}
+	}
 }
 
 void ssd1306_initialise() {

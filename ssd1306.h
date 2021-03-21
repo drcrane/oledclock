@@ -1,6 +1,7 @@
 #ifndef __SSD1306_H__
 #define __SSD1306_H__
 
+#include <stdint.h>
 
 //#define SSD_Command_Mode	0x80 	/* Co is 1 and DC bit are 0 				 */
 #define SSD_Command_Mode	0x00 	/* Co and DC bit are 0 				 */
@@ -76,12 +77,18 @@
 =========================================================================*/
 #define SSD1308_Normal_Display	0xA6
 
+#define SSD1306_FRAMEBUFFERSZ 128
+extern uint8_t ssd1306_frame_buffer[SSD1306_FRAMEBUFFERSZ];
+extern int ssd1306_fb_top_x, ssd1306_fb_top_y;
+
 void ssd1306_command_1(int cmd);
 void ssd1306_command_2(int cmd, int arg);
 void ssd1306_command_3(int cmd, int arg1, int arg2);
 void ssd1306_data_write(int count, char * buf);
 void ssd1306_writestringz(int posx, int posy, char * strz);
 void ssd1306_clear();
+void ssd1306_writeframebuffer();
+void ssd1306_draw_line(int x0, int y0, int x1, int y1);
 void ssd1306_initialise();
 
 #endif // __SSD1306_H__

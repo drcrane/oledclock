@@ -9,6 +9,8 @@
 #include "serial.h"
 
 char txbuf[28];
+uint16_t frame_buffer_idx;
+//uint8_t frame_buffer[128];
 
 void hwuart_sendb(char b) {
 	while(!(IFG2 & UCA0TXIFG));
@@ -27,8 +29,18 @@ void write_time();
 void oled_displaytime() {
 	write_time();
 	UCB0I2CSA = 0x3c;
-	ssd1306_writestringz(8, 16, txbuf);
+	ssd1306_writestringz(8, 32, txbuf);
 	//P2OUT ^= BIT0;
+	timer_callback(1, oled_displaytime);
+}
+
+void oled_drawline() {
+	UCB0I2CSA = 0x3c;
+	ssd1306_fb_top_x = 0;
+	ssd1306_fb_top_y = 0;
+	ssd1306_draw_line(0,0,31,7);
+	ssd1306_draw_line(31,7,0,31);
+	ssd1306_writeframebuffer();
 	timer_callback(1, oled_displaytime);
 }
 
@@ -37,7 +49,8 @@ void oled_initialise() {
 	ssd1306_initialise();
 	ssd1306_clear();
 	ssd1306_command_1(SSD_Display_On);
-	timer_callback(1, oled_displaytime);
+	//timer_callback(1, oled_displaytime);
+	timer_callback(1, oled_drawline);
 }
 
 void write_time() {
@@ -303,6 +316,10 @@ int main(void) {
 			if (c == 'f') {
 				timer_is_present_remove(led_toggle);
 			}
+			//if (c == 'G') {
+			//	frame_buffer[frame_buffer_idx] = 'f';
+			//	frame_buffer_idx ++;
+			//}
 			uart_ctx.flags &= ~(UART_HASRECEIVED);
 		}
 		timer_docallbacks();

@@ -4,8 +4,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define I2C_BUFSZ 64
+
 struct i2c_context {
-	uint8_t txbuf[16];
+	uint8_t txbuf[I2C_BUFSZ];
 	size_t txbuf_pos;
 	size_t txbuf_sz;
 };
