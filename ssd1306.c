@@ -117,15 +117,23 @@ void ssd1306_clear() {
 	ssd1306_command_3( 0x22, 0, 7 );
 }
 
+void ssd1306_clearframebuffer() {
+	uint16_t ctr = SSD1306_FRAMEBUFFERSZ;
+	uint8_t * ptr = ssd1306_frame_buffer;
+	while (ctr --) {
+		*ptr++ = 0;
+	}
+}
+
 void ssd1306_writeframebuffer() {
 	int posx = ssd1306_fb_top_x;
-	int posy = ssd1306_fb_top_y >> 3;
+	int posy = (ssd1306_fb_top_y >> 3) & 7;
 	int ctr = 4;
 	while (ctr) {
 		ssd1306_command_1(SSD1306_SETLOWCOLUMN | (posx & 0xf));
 		ssd1306_command_1(SSD1306_SETHIGHCOLUMN | ((posx >> 4) & 0xf));
 		ssd1306_command_1(SSD1306_SETPAGE | (posy & 0xf));
-		ssd1306_data_write(32, (char *)&ssd1306_frame_buffer[(posy) * 32]);
+		ssd1306_data_write(32, (char *)&ssd1306_frame_buffer[(posy & 3) * 32]);
 		posy ++;
 		ctr --;
 	}
@@ -140,10 +148,12 @@ static void ssd1306_write_pixel(int x, int y) {
 	int offs;
 	uint8_t curr_byte;
 	uint8_t byte;
-	x = x - ssd1306_fb_top_x;
-	y = y - ssd1306_fb_top_y;
+	//x = x - ssd1306_fb_top_x;
+	//y = y - ssd1306_fb_top_y;
 	if (x < 0) { return; }
+	if (x >= 32) { return; }
 	if (y < 0) { return; }
+	if (y >= 32) { return; }
 	offs = x + ((y >> 3) * 32);
 	byte = 0x1;
 	byte = byte << (y & 0x7);

@@ -87,6 +87,7 @@ void ssd1306_command_3(int cmd, int arg1, int arg2);
 void ssd1306_data_write(int count, char * buf);
 void ssd1306_writestringz(int posx, int posy, char * strz);
 void ssd1306_clear();
+void ssd1306_clearframebuffer();
 void ssd1306_writeframebuffer();
 void ssd1306_draw_line(int x0, int y0, int x1, int y1);
 void ssd1306_initialise();

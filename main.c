@@ -7,10 +7,9 @@
 #include "rtc.h"
 #include "timerfn.h"
 #include "serial.h"
+#include "clockface.h"
 
 char txbuf[28];
-uint16_t frame_buffer_idx;
-//uint8_t frame_buffer[128];
 
 void hwuart_sendb(char b) {
 	while(!(IFG2 & UCA0TXIFG));
@@ -29,17 +28,66 @@ void write_time();
 void oled_displaytime() {
 	write_time();
 	UCB0I2CSA = 0x3c;
-	ssd1306_writestringz(8, 32, txbuf);
+	ssd1306_writestringz(64, 0, txbuf);
 	//P2OUT ^= BIT0;
 	timer_callback(1, oled_displaytime);
 }
 
 void oled_drawline() {
+	int16_t idx;
+	uint8_t x1, y1;
 	UCB0I2CSA = 0x3c;
 	ssd1306_fb_top_x = 0;
 	ssd1306_fb_top_y = 0;
-	ssd1306_draw_line(0,0,31,7);
-	ssd1306_draw_line(31,7,0,31);
+	// Draw Left Top Quarter
+	// Draw From 0,32 to 32,0
+	x1 = 32-clockface_qtr[0].x;
+	y1 = clockface_qtr[0].y;
+	for (idx = 0; idx <= 15; idx++) {
+		ssd1306_draw_line(x1, y1, 32-clockface_qtr[idx].x, clockface_qtr[idx].y);
+		x1 = 32-clockface_qtr[idx].x;
+		y1 = clockface_qtr[idx].y;
+	}
+	ssd1306_writeframebuffer();
+	ssd1306_fb_top_x = 32;
+	ssd1306_fb_top_y = 0;
+	ssd1306_clearframebuffer();
+	// Draw Right Top Quarter
+	// Draw from 32,0 to 64,32
+	x1 = clockface_qtr[0].x;
+	y1 = clockface_qtr[0].y;
+	for (idx = 1; idx <= 15; idx++) {
+		ssd1306_draw_line(x1, y1, clockface_qtr[idx].x, clockface_qtr[idx].y);
+		x1 = clockface_qtr[idx].x;
+		y1 = clockface_qtr[idx].y;
+	}
+	ssd1306_writeframebuffer();
+	// ----------------------
+	ssd1306_fb_top_x = 32;
+	ssd1306_fb_top_y = 32;
+	ssd1306_clearframebuffer();
+	// Draw Bottom Right Quarter
+	// Draw from 64,32 to 32,64
+	x1 = clockface_qtr[15].x;
+	y1 = 31-clockface_qtr[15].y;
+	for (idx = 14; idx >= 0; idx--) {
+		ssd1306_draw_line(x1, y1, clockface_qtr[idx].x, 31-clockface_qtr[idx].y);
+		x1 = clockface_qtr[idx].x;
+		y1 = 31-clockface_qtr[idx].y;
+	}
+	ssd1306_writeframebuffer();
+	ssd1306_fb_top_x = 0;
+	ssd1306_fb_top_y = 32;
+	ssd1306_clearframebuffer();
+	// Draw Bottom Left Quarter
+	// Draw from 32,64 to 0,32
+	x1 = 32-clockface_qtr[0].x;
+	y1 = 31-clockface_qtr[0].y;
+	for (idx = 0; idx <= 15; idx++) {
+		ssd1306_draw_line(x1, y1, 32-clockface_qtr[idx].x, 31-clockface_qtr[idx].y);
+		x1 = 32-clockface_qtr[idx].x;
+		y1 = 31-clockface_qtr[idx].y;
+	}
 	ssd1306_writeframebuffer();
 	timer_callback(1, oled_displaytime);
 }
